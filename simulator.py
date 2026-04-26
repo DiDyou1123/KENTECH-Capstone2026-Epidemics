@@ -14,23 +14,25 @@ from pdb import set_trace
 arr64 = npt.NDArray[np.float64]
 
 
-class MetapopulationSIR:
+class MetapopulationSIRSolver:
     """
     Matapopulation SIR model simulator
     """
 
     def __init__(
         self,
-        graph: nx.DiGraph,  # Mobility directional network with population node attributes and weight (diffusion rate) edge attributes
+        graph: nx.DiGraph,  # Mobility directional network with population node attributes and mobilityedge attributes
         basic_rep: float,  # R0 = beta/mu
         recovery_time: float,  # T = 1/mu
+        pop_attr: str = "population",  # Population attribute name
+        mob_attr: str = "weight",  # Population attribute name
         tol: float = 1e-11,  # Internal tolerance
     ):
         # Setup network
         self.num_nodes = graph.number_of_nodes()
-        self.adj_mat = nx.adjacency_matrix(graph, weight="weight", dtype=np.float64)
+        self.adj_mat = nx.adjacency_matrix(graph, weight=mob_attr, dtype=np.float64)
         self.total_pops = np.array(
-            list(nx.get_node_attributes(graph, "population").values())
+            list(nx.get_node_attributes(graph, pop_attr).values())
         )
 
         # Exceptions
