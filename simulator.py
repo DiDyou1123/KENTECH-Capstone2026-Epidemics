@@ -140,11 +140,13 @@ class MetapopulationSIR:
             if len(history) < 2:
                 return 1.0
 
-            i_arr = np.stack([x[1] for x in history], axis=0)  # shape (m, num_nodes)
-            i_change = np.abs(np.diff(i_arr, axis=0)) > ttol
+            i_norm_frac_arr = np.stack(
+                [x[1] for x in history], axis=0
+            )  # shape (m, num_nodes)
+            d_i_norm_frac = np.abs(np.diff(i_norm_frac_arr, axis=0)) > ttol
 
             # event must return float; terminate when no changes exceed ttol
-            return np.sum(i_change, dtype=float)
+            return np.sum(d_i_norm_frac, dtype=float)
 
         termination.terminal = True
 
