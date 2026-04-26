@@ -8,6 +8,7 @@ import numpy.typing as npt
 from scipy.sparse._csr import csr_array
 from scipy.integrate import solve_ivp
 
+from collections import deque
 from typing import Callable
 from time import time
 from pdb import set_trace
@@ -22,14 +23,33 @@ class MetapopulationSIR:
 
     def __init__(
         self,
-        graph: nx.DiGraph,  # Mobility directional network with population node attributes and weight (diffusion probability) edge attributes
+        graph: nx.DiGraph,  # Mobility directional network with population node attributes and weight (diffusion rate) edge attributes
         basic_rep: float,  # R0 = beta/mu
         recovery_time: float,  # T = 1/mu
+        tol: float = 1e-11,  # Internal tolerance
     ):
+        # Setup network
         self.num_nodes = graph.number_of_nodes()
         self.adj_mat = nx.adjacency_matrix(graph, weight="weight", dtype=np.float64)
-        self.pops = nx.get_node_attributes(graph, "population")
+        self.total_pops = np.array(
+            list(nx.get_node_attributes(graph, "population").values())
+        )
 
+        # Exceptions
+        self.tol = tol
+        asymmetry = abs(self.adj_mat.sum(axis=0) - self.adj_mat.sum(axis=1)) > self.tol
+        if np.any(asymmetry):
+            raise ValueError(
+                f"Mobility is not balanced for nodes {list(np.where(asymmetry)[0])}"
+            )
+
+        overflow = self.adj_mat.sum(axis=1) > self.total_pops
+        if np.any(overflow):
+            raise ValueError(
+                f"Mobility outflow exceeds population for nodes {list(np.where(overflow)[0])}"
+            )
+
+        # Setup epidemics
         self.i_rate = basic_rep / recovery_time  # Infection rate beta
         self.r_rate = 1 / recovery_time  # Removal rate mu
 
@@ -37,25 +57,24 @@ class MetapopulationSIR:
         self,
         time: float,
         pop_fracs: arr64,  # Population compartments fractions array
-        i_rate: float,  # Infection rate beta
-        r_rate: float,  # Removal rate mu
-        adj_mat: csr_array,  # Mobility w_nm as adjacency matrix
-        num_nodes: int,
     ) -> arr64:
         """
         SIR model equations
         """
 
-        i_fracs = pop_fracs[:num_nodes]  # Infected population fraction
-        s_fracs = pop_fracs[num_nodes:]  # Susceptible population fraction
+        i_fracs = pop_fracs[: self.num_nodes]  # Infected population fraction
+        s_fracs = pop_fracs[self.num_nodes :]  # Susceptible population fraction
 
         d_i_fracs = (
-            i_rate * s_fracs * i_fracs
-            - r_rate * i_fracs
-            + (adj_mat.T.dot(i_fracs) - adj_mat.sum(axis=1) * i_fracs)
+            self.i_rate * s_fracs * i_fracs
+            - self.r_rate * i_fracs
+            + (self.adj_mat.T.dot(i_fracs) - self.adj_mat.sum(axis=1) * i_fracs)
+            / self.total_pops
         )
-        d_s_fracs = -i_rate * s_fracs * i_fracs + (
-            adj_mat.T.dot(s_fracs) - adj_mat.sum(axis=1) * s_fracs
+        d_s_fracs = (
+            -self.i_rate * s_fracs * i_fracs
+            + (self.adj_mat.T.dot(s_fracs) - self.adj_mat.sum(axis=1) * s_fracs)
+            / self.total_pops
         )
 
         return np.concatenate((d_i_fracs, d_s_fracs), axis=0)
@@ -66,35 +85,37 @@ class MetapopulationSIR:
         init_i_pop: np.float64,  # Initial infected population
         time_min: np.float64,  # Minimum solve time
         time_max: np.float64,  # Maximum solve time
-        ttol: float = 1e-11,  # Termination tolerance
+        ttol: float | None = None,  # Termination tolerance
         t_window: float | None = None,  # Termination tolerance time window
         method: str = "RK45",  # Solve method
-        rtol: float = 1e-11,  # Solve relative tolerance
-        atol: float = 1e-11,  # Solve absolute tolerance
-        **kwargs  # Other solve kwargs
+        rtol: float | None = None,  # Solve relative tolerance
+        atol: float | None = None,  # Solve absolute tolerance
+        **kwargs,  # Other solve kwargs
     ) -> dict:
         """
         Run SIR model simulation by solving equations numerically
         """
 
         # Initial point
-
         init_i_fracs = np.zeros(self.num_nodes, dtype=np.float64)
-        init_i_fracs[init_node] = init_i_pop / self.pops[init_node]
+        init_i_fracs[init_node] = init_i_pop / self.total_pops[init_node]
         init_s_fracs = np.ones(self.num_nodes, dtype=np.float64) - init_i_fracs
 
-        # Termination condition
+        # Tolerances
+        if ttol == None:
+            ttol = self.tol
+        if rtol == None:
+            rtol = self.tol
+        if atol == None:
+            atol = self.tol
 
+        # Termination condition
         if t_window == None:
             t_window = 2 / self.i_rate  # Default t_window is two times recovery time
 
         def termination(
             time: float,
             pop_fracs: arr64,  # Population compartments fractions array
-            i_rate: float,  # Infection rate beta
-            r_rate: float,  # Removal rate mu
-            adj_mat: csr_array,  # Mobility w_nm as adjacency matrix
-            num_nodes: int,
         ) -> int:
             """
             Terminate solve when susceptible fraction change less than ttol for t_window
@@ -103,7 +124,7 @@ class MetapopulationSIR:
                 return 1
 
             termination.time_queue.append(time)
-            s_fracs = pop_fracs[num_nodes:]
+            s_fracs = pop_fracs[self.num_nodes :]
 
             termination.s_fracs_queue = np.append(
                 termination.s_fracs_queue, s_fracs, axis=1
@@ -122,7 +143,7 @@ class MetapopulationSIR:
             )
 
         termination.terminal = True  # Teminate solve when condition is met
-        termination.time_queue = [0]  #
+        termination.time_queue = [0]
         termination.s_fracs_queue = init_s_fracs
         termination.start_time = time()
 
@@ -131,12 +152,14 @@ class MetapopulationSIR:
             self.get_velocity,
             (0, time_max),
             np.concatenate((init_i_fracs, init_s_fracs), axis=0),
-            args=(self.i_rate, 1 / self.r_rate, self.adj_mat, self.num_nodes),
-            event=termination,
+            events=termination,
             method=method,
             rtol=rtol,
             atol=atol,
-            **kwargs
+            **kwargs,
         )
+
+        result["y"][: self.num_nodes] = result["y"][: self.num_nodes] * self.total_pops
+        result["y"][self.num_nodes :] = result["y"][self.num_nodes :] * self.total_pops
 
         return result
