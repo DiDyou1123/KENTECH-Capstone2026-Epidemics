@@ -9,8 +9,6 @@ from scipy.sparse._csr import csr_array
 from scipy.integrate import solve_ivp
 
 from collections import deque
-from typing import Callable
-from time import time
 from pdb import set_trace
 
 arr64 = npt.NDArray[np.float64]
@@ -79,21 +77,23 @@ class MetapopulationSIR:
 
         return np.concatenate((d_i_fracs, d_s_fracs), axis=0)
 
-    def run_simulation(
+    def terminal_simulation(
         self,
         init_node: int,  # Node index of initial infection
         init_i_pop: np.float64,  # Initial infected population
         time_min: np.float64,  # Minimum solve time
         time_max: np.float64,  # Maximum solve time
-        ttol: float | None = None,  # Termination tolerance
-        t_window: float | None = None,  # Termination tolerance time window
-        method: str = "RK45",  # Solve method
-        rtol: float | None = None,  # Solve relative tolerance
-        atol: float | None = None,  # Solve absolute tolerance
+        ttol: float | None = None,
+        # Termination tolerance, fraction of global total population
+        t_window: float | None = None,  # Time window to maintain termination tolerance
+        method: str = "DOP853",  # Solver method
+        rtol: float | None = None,  # Solver relative tolerance
+        atol: float | None = None,  # Solver absolute tolerance
         **kwargs,  # Other solve kwargs
     ) -> dict:
         """
         Run SIR model simulation by solving equations numerically
+        Solve until infected population does not change
         """
 
         # Initial point
@@ -113,39 +113,40 @@ class MetapopulationSIR:
         if t_window == None:
             t_window = 2 / self.i_rate  # Default t_window is two times recovery time
 
+        history = deque(
+            [(0.0, init_i_fracs.copy() * self.total_pops / self.total_pops.sum())]
+        )
+
         def termination(
             time: float,
-            pop_fracs: arr64,  # Population compartments fractions array
-        ) -> int:
-            """
-            Terminate solve when susceptible fraction change less than ttol for t_window
-            """
+            pop_fracs: arr64,
+        ) -> float:
+
             if time < time_min:
-                return 1
+                return 1.0  # keep solving
 
-            termination.time_queue.append(time)
-            s_fracs = pop_fracs[self.num_nodes :]
-
-            termination.s_fracs_queue = np.append(
-                termination.s_fracs_queue, s_fracs, axis=1
+            i_norm_fracs = (
+                pop_fracs[: self.num_nodes].copy()
+                * self.total_pops
+                / self.total_pops.sum()
             )
+            history.append((time, i_norm_fracs))
 
-            if termination.time_queue[1] < time - t_window:
-                termination.time_queue.pop()
-                termination.s_fracs_queue = np.delete(
-                    termination.s_fracs_queue, (0), axis=1
-                )
+            # drop old samples outside window
+            while len(history) >= 2 and history[1][0] < time - t_window:
+                history.popleft()
 
-            return np.sum(
-                np.abs(termination.s_fracs_queue[1:] - termination.s_fracs_queue[:-1])
-                > ttol,
-                dtype=int,
-            )
+            # need at least 2 points to compare change
+            if len(history) < 2:
+                return 1.0
 
-        termination.terminal = True  # Teminate solve when condition is met
-        termination.time_queue = [0]
-        termination.s_fracs_queue = init_s_fracs
-        termination.start_time = time()
+            i_arr = np.stack([x[1] for x in history], axis=0)  # shape (m, num_nodes)
+            i_change = np.abs(np.diff(i_arr, axis=0)) > ttol
+
+            # event must return float; terminate when no changes exceed ttol
+            return np.sum(i_change, dtype=float)
+
+        termination.terminal = True
 
         # Solve
         result = solve_ivp(
@@ -159,7 +160,51 @@ class MetapopulationSIR:
             **kwargs,
         )
 
-        result["y"][: self.num_nodes] = result["y"][: self.num_nodes] * self.total_pops
-        result["y"][self.num_nodes :] = result["y"][self.num_nodes :] * self.total_pops
+        # Add populations to result
+        result["I"] = result["y"][: self.num_nodes] * self.total_pops[:, None]
+        result["S"] = result["y"][self.num_nodes :] * self.total_pops[:, None]
+        result["R"] = (
+            1 - result["y"][: self.num_nodes] - result["y"][self.num_nodes :]
+        ) * self.total_pops[:, None]
+
+        return result
+
+    def unit_time_simulation(
+        self,
+        init_node: int,  # Node index of initial infection
+        init_i_pop: np.float64,  # Initial infected population
+        time_max: np.float64,  # Maximum solve time
+        eval_rate: np.float64,  # Unit time evaluation frequency
+        method: str = "DOP853",  # Solve method
+        **kwargs,  # Other solve kwargs
+    ) -> dict:
+        """
+        Run SIR model simulation by solving equations numerically
+        """
+
+        # Initial point
+        init_i_fracs = np.zeros(self.num_nodes, dtype=np.float64)
+        init_i_fracs[init_node] = init_i_pop / self.total_pops[init_node]
+        init_s_fracs = np.ones(self.num_nodes, dtype=np.float64) - init_i_fracs
+
+        # Evaluation times
+        eval_time = np.arange(1, eval_rate * time_max) / eval_rate
+
+        # Solve
+        result = solve_ivp(
+            self.get_velocity,
+            (0, time_max),
+            np.concatenate((init_i_fracs, init_s_fracs), axis=0),
+            t_eval=eval_time,
+            method=method,
+            **kwargs,
+        )
+
+        # Add populations to result
+        result["I"] = result["y"][: self.num_nodes] * self.total_pops[:, None]
+        result["S"] = result["y"][self.num_nodes :] * self.total_pops[:, None]
+        result["R"] = (
+            1 - result["y"][: self.num_nodes] - result["y"][self.num_nodes :]
+        ) * self.total_pops[:, None]
 
         return result
