@@ -192,7 +192,7 @@ class MetapopulationSIRSolver:
         init_s_fracs = np.ones(self.num_nodes, dtype=np.float64) - init_i_fracs
 
         # Evaluation times
-        eval_time = np.arange(1, eval_rate * time_max) / eval_rate
+        eval_time = np.arange(0, eval_rate * time_max) / eval_rate
 
         # Solve
         result = solve_ivp(
