@@ -1,0 +1,2 @@
+seed_country_id,initial_prevalence,R0,beta,mu,num_simulations,mean_final_attack_rate,std_final_attack_rate,mean_peak_infected,mean_peak_infected_rate,mean_countries_reached_max,std_countries_reached_max,mean_steps_run
+3,0.001,5,0.2,0.04,50,0.9919948387246977,0.0001761667460138102,2563730707.0,0.34857557851405807,225.0,0.0,365.0
