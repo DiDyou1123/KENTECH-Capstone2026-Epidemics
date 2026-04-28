@@ -22,8 +22,6 @@ class MetapopulationSIRSolver:
     def __init__(
         self,
         graph: nx.DiGraph,  # Mobility directional network with population node attributes and mobilityedge attributes
-        basic_rep: float,  # R0 = beta/mu
-        recovery_time: float,  # T = 1/mu
         pop_attr: str = "population",  # Population attribute name
         mob_attr: str = "weight",  # Population attribute name
         tol: float = 1e-11,  # Internal tolerance
@@ -49,14 +47,12 @@ class MetapopulationSIRSolver:
                 f"Mobility outflow exceeds population for nodes {list(np.where(overflow)[0])}"
             )
 
-        # Setup epidemics
-        self.i_rate = basic_rep / recovery_time  # Infection rate beta
-        self.r_rate = 1 / recovery_time  # Removal rate mu
-
     def get_velocity(
         self,
         time: float,
         pop_fracs: arr64,  # Population compartments fractions array
+        i_rate: float,
+        r_rate: float,
     ) -> arr64:
         """
         SIR model equations
@@ -66,13 +62,13 @@ class MetapopulationSIRSolver:
         s_fracs = pop_fracs[self.num_nodes :]  # Susceptible population fraction
 
         d_i_fracs = (
-            self.i_rate * s_fracs * i_fracs
-            - self.r_rate * i_fracs
+            i_rate * s_fracs * i_fracs
+            - r_rate * i_fracs
             + (self.adj_mat.T.dot(i_fracs) - self.adj_mat.sum(axis=1) * i_fracs)
             / self.total_pops
         )
         d_s_fracs = (
-            -self.i_rate * s_fracs * i_fracs
+            -i_rate * s_fracs * i_fracs
             + (self.adj_mat.T.dot(s_fracs) - self.adj_mat.sum(axis=1) * s_fracs)
             / self.total_pops
         )
@@ -81,6 +77,8 @@ class MetapopulationSIRSolver:
 
     def terminal_simulation(
         self,
+        basic_rep: float,  # R0 = beta/mu
+        recovery_time: float,  # T = 1/mu
         init_node: int,  # Node index of initial infection
         init_i_pop: np.float64,  # Initial infected population
         time_min: np.float64,  # Minimum solve time
@@ -98,6 +96,10 @@ class MetapopulationSIRSolver:
         Solve until infected population does not change
         """
 
+        # Setup epidemics
+        i_rate = basic_rep / recovery_time  # Infection rate beta
+        r_rate = 1 / recovery_time  # Removal rate mu
+
         # Initial point
         init_i_fracs = np.zeros(self.num_nodes, dtype=np.float64)
         init_i_fracs[init_node] = init_i_pop / self.total_pops[init_node]
@@ -113,7 +115,7 @@ class MetapopulationSIRSolver:
 
         # Termination condition
         if t_window == None:
-            t_window = 2 / self.i_rate  # Default t_window is two times recovery time
+            t_window = 2 / i_rate  # Default t_window is two times recovery time
 
         history = deque(
             [(0.0, init_i_fracs.copy() * self.total_pops / self.total_pops.sum())]
@@ -122,6 +124,8 @@ class MetapopulationSIRSolver:
         def termination(
             time: float,
             pop_fracs: arr64,
+            i_rate: float,
+            r_rate: float,
         ) -> float:
 
             if time < time_min:
@@ -157,6 +161,7 @@ class MetapopulationSIRSolver:
             self.get_velocity,
             (0, time_max),
             np.concatenate((init_i_fracs, init_s_fracs), axis=0),
+            args=(i_rate, r_rate),
             events=termination,
             method=method,
             rtol=rtol,
@@ -175,6 +180,8 @@ class MetapopulationSIRSolver:
 
     def unit_time_simulation(
         self,
+        basic_rep: float,  # R0 = beta/mu
+        recovery_time: float,  # T = 1/mu
         init_node: int,  # Node index of initial infection
         init_i_pop: np.float64,  # Initial infected population
         time_max: np.float64,  # Maximum solve time
@@ -185,6 +192,10 @@ class MetapopulationSIRSolver:
         """
         Run SIR model simulation by solving equations numerically
         """
+
+        # Setup epidemics
+        i_rate = basic_rep / recovery_time  # Infection rate beta
+        r_rate = 1 / recovery_time  # Removal rate mu
 
         # Initial point
         init_i_fracs = np.zeros(self.num_nodes, dtype=np.float64)
@@ -199,6 +210,7 @@ class MetapopulationSIRSolver:
             self.get_velocity,
             (0, time_max),
             np.concatenate((init_i_fracs, init_s_fracs), axis=0),
+            args=(i_rate, r_rate),
             t_eval=eval_time,
             method=method,
             **kwargs,
