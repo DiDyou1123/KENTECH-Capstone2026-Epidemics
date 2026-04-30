@@ -8,6 +8,8 @@ import numpy.typing as npt
 from scipy.sparse._csr import csr_array
 from scipy.integrate import solve_ivp
 
+from cut_graph import EasyCutGraph
+
 from collections import deque
 from pdb import set_trace
 
@@ -21,7 +23,9 @@ class MetapopulationSIRSolver:
 
     def __init__(
         self,
-        graph: nx.DiGraph,  # Mobility directional network with population node attributes and mobilityedge attributes
+        graph: (
+            nx.DiGraph | nx.Graph | EasyCutGraph
+        ),  # Mobility directional network with population node attributes and mobility edge attributes
         pop_attr: str = "population",  # Population attribute name
         mob_attr: str = "weight",  # Population attribute name
         tol: float = 1e-11,  # Internal tolerance

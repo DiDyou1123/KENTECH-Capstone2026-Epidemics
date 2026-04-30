@@ -1,0 +1,2 @@
+seed_index,seed_id,seed_country,seed_population,initial_prevalence,initial_infected,R0,beta,mu,dt,step_order,steps_run,final_susceptible,final_infected,final_recovered,final_attack_rate,peak_infected,peak_infected_rate,countries_reached_final,countries_reached_max,simulation
+3,3,American Samoa,53466,0.001,53,5.0,0.2,0.04,1.0,local_then_travel,365,46489018,13070635,7295317926,0.9919020198011103,2549800286,0.3466815400544956,225,225,0
