@@ -25,11 +25,11 @@ basic_rep_list = [
     2.0,
     4.0,
 ]  # Single population basic reproduction number R0
-r_time_list = [14, 28]  # Recovery time T (days)
-init_i_pop = 5  # Initial infected populaiton (people)
+r_time_list = [14.0, 28.0]  # Recovery time T (days)
+init_i_pop = 5.0  # Initial infected populaiton (people)
 
 # Simulation parameters
-max_time = 10 * 365  # Maximum simulation time (days)
+max_time = 10 * 365.0  # Maximum simulation time (days)
 tolerance = 1e-11  # Numerical solver & terminaiton tolerance
 
 # Edge cutting parameters
@@ -78,7 +78,7 @@ with open(f"results\\{name}-results.csv", "w") as f:
 
 # Progression counter
 total_jobs = (
-    len(basic_rep_list) * len(r_time_list) * num_cut_steps * num_cut_seeds * num_nodes
+    num_cut_steps * num_cut_seeds * len(r_time_list) * len(basic_rep_list) * num_nodes
 )
 done_jobs = 0
 
