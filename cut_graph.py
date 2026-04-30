@@ -41,7 +41,8 @@ class EasyCutGraph(nx.Graph):
             rng = np.random.default_rng(seed=seed)
             cuts = self.get_random_edge_cut(
                 num_cuts, rng, prob_weights=[]
-            )  # 1/mobility random은 여기서 확률 weight만 바꾸면 될듯?
+            )  
+            # ========== 1/mobility random은 위에서 확률 weight만 바꾸면 될듯? ==========
 
         # ========== 여기에 다른 method if문 추가 ==========
 

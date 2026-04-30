@@ -27,7 +27,7 @@ class MetapopulationSIRSolver:
             nx.DiGraph | nx.Graph | EasyCutGraph
         ),  # Mobility directional network with population node attributes and mobility edge attributes
         pop_attr: str = "population",  # Population attribute name
-        mob_attr: str = "weight",  # Population attribute name
+        mob_attr: str = "mobility",  # Population attribute name
         tol: float = 1e-11,  # Internal tolerance
     ):
         # Setup network

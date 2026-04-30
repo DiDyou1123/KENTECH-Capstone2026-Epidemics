@@ -1,23 +1,15 @@
+# ```main.py```
+
+메인 Epidemics + Edge cut 반복 시뮬레이션 코드 
+
+**파라미터 바꿔서 다른 시뮬레이션 가능**
+
 # ```simulator.py```
 
-메인 Metapopulation SIR 방정식 수치해석 모듈
+Metapopulation SIR 모델 수치해석 클래스 모듈
 
-# ```air-traffic_test.ipynb```
+# ```cut_graph.py```
 
-```simulator.py```를 세계 항공망 데이터, COVID-19 케이스에 테스트
+Edge cutting용 클래스 모듈
 
-# ```test-percolation-SIR.ipynb```
-
-Metapopulaiton SIR 모형에서 edge cutting 테스트
-
-# ```test.ipynb```
-
-Metapopulation SIR 방정식 수치해석 테스트 & 애니메이팅
-
-# ```data```
-
-OpenFlight 세계 항공망 네트워크 데이터 & 시뮬레이션 결과 
-
-# ```figs```
-
-결과 그림 & 동영상
+**새로운 edge cutting method 구현 필요**
