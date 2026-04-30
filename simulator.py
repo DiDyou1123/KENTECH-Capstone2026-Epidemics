@@ -84,9 +84,9 @@ class MetapopulationSIRSolver:
         basic_rep: float,  # R0 = beta/mu
         recovery_time: float,  # T = 1/mu
         init_node: int,  # Node index of initial infection
-        init_i_pop: np.float64,  # Initial infected population
-        time_min: np.float64,  # Minimum solve time
-        time_max: np.float64,  # Maximum solve time
+        init_i_pop: float,  # Initial infected population
+        time_min: float,  # Minimum solve time
+        time_max: float,  # Maximum solve time
         ttol: float | None = None,
         # Termination tolerance, fraction of global total population
         t_window: float | None = None,  # Time window to maintain termination tolerance

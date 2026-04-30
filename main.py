@@ -7,6 +7,7 @@ from cut_graph import EasyCutGraph
 
 from itertools import product
 from time import time
+from pdb import set_trace
 
 # ==============================
 # Simulation parameters
@@ -78,7 +79,11 @@ with open(f"results\\{name}-results.csv", "w") as f:
 
 # Progression counter
 total_jobs = (
-    num_cut_steps * num_cut_seeds * len(r_time_list) * len(basic_rep_list) * num_nodes
+    (num_cut_steps + 1)
+    * num_cut_seeds
+    * len(r_time_list)
+    * len(basic_rep_list)
+    * num_nodes
 )
 done_jobs = 0
 
@@ -91,6 +96,7 @@ clock_start = time()
 
 # Edge cut iteration
 for num_cuts in range(0, num_edges, num_edges // num_cut_steps):
+    print(num_cuts)
     for cut_seed in range(num_cut_seeds):
 
         # Cut edges of mobility graph
@@ -108,7 +114,7 @@ for num_cuts in range(0, num_edges, num_edges // num_cut_steps):
 
         # Epidemics iteration
         for r_time, basic_rep, init_node in product(
-            r_time_list, basic_rep_list, cut_graph.nodes
+            r_time_list, basic_rep_list, orig_graph.nodes
         ):
 
             # Main solve
