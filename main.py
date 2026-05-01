@@ -96,7 +96,6 @@ clock_start = time()
 
 # Edge cut iteration
 for num_cuts in range(0, num_edges, num_edges // num_cut_steps):
-    print(num_cuts)
     for cut_seed in range(num_cut_seeds):
 
         # Cut edges of mobility graph
