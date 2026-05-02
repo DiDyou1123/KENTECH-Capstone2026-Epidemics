@@ -44,6 +44,12 @@ class EasyCutGraph(nx.Graph):
             )  
             # ========== 1/mobility random은 위에서 확률 weight만 바꾸면 될듯? ==========
 
+        elif method == "static_bc":
+            cuts = self.get_static_bc_edge_cut(num_cuts, **kwargs)
+
+        elif method == "greedy_bc":
+            cuts = self.get_greedy_bc_edge_cut(num_cuts, **kwargs)
+
         # ========== 여기에 다른 method if문 추가 ==========
 
         else:
@@ -81,3 +87,46 @@ class EasyCutGraph(nx.Graph):
         return rng.choice(np.array(self.edges), num_cuts, replace=False, p=prob_weights)
 
     # ========== 아래에 다른 자를 edge 선택 방법 방법 구현 ==========
+
+    def get_static_bc_edge_cut(
+        self,
+        num_cuts: int,
+        weight: str | None = "mobility",
+    ) -> list[tuple]:
+        
+        # BC를 한 번 계산한 뒤, 높은 순서대로 num_cuts개 엣지 선택
+        
+        inv_weight = "inv_" + weight
+        for u, v, data in self.edges(data=True):
+            data[inv_weight] = 1.0 / data[weight]
+
+        bc = nx.edge_betweenness_centrality(self, weight=inv_weight)
+        sorted_edges = sorted(bc, key=bc.get, reverse=True)
+        return sorted_edges[:num_cuts]
+
+
+    def get_greedy_bc_edge_cut(
+        self,
+        num_cuts: int,
+        weight: str | None = "mobility",
+    ) -> list[tuple]:
+        
+        # 매 스텝마다 BC를 재계산하며 가장 높은 엣지를 하나씩 num_cuts번 자르기
+
+        working_graph = self.copy()
+        inv_weight = "inv_" + weight
+        cuts = []
+
+        for _ in range(num_cuts):
+            if working_graph.number_of_edges() == 0:
+                break
+
+            for u, v, data in working_graph.edges(data=True):
+                data[inv_weight] = 1.0 / data[weight]
+
+            bc = nx.edge_betweenness_centrality(working_graph, weight=inv_weight)
+            top_edge = max(bc, key=bc.get)
+            cuts.append(top_edge)
+            working_graph.remove_edge(*top_edge)
+
+        return cuts

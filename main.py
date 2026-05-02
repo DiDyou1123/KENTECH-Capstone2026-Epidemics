@@ -45,8 +45,8 @@ prog_period = 100  # Progress print period
 # Load mobility network
 # ==============================
 
-edgelist = pd.read_csv("data\\edgelist_symmetric.csv")
-nodelist = pd.read_csv("data\\nodelist_connected.csv")
+edgelist = pd.read_csv("data/edgelist_symmetric.csv")
+nodelist = pd.read_csv("data/nodelist_connected.csv")
 
 edgelist["mobility"] = edgelist[mob_column] * unit_mob
 nodelist = nodelist.set_index("ID")
