@@ -130,3 +130,34 @@ class EasyCutGraph(nx.Graph):
             working_graph.remove_edge(*top_edge)
 
         return cuts
+
+def get_population_product_edge_cut(
+        self,
+        num_cuts: int,
+        pop_attr: str = "population",
+    ) -> list[tuple]:
+        """
+        Select edges to cut based on the product of endpoint populations.
+
+        Edge score:
+            score(u, v) = population[u] * population[v]
+
+        Edges with larger score are cut first.
+        """
+
+        edge_scores = {}
+
+        for u, v in self.edges:
+            pop_u = self.nodes[u].get(pop_attr)
+            pop_v = self.nodes[v].get(pop_attr)
+
+            if pop_u is None or pop_v is None:
+                raise ValueError(
+                    f"Node population attribute '{pop_attr}' is missing for edge ({u}, {v})"
+                )
+
+            edge_scores[(u, v)] = pop_u * pop_v
+
+        sorted_edges = sorted(edge_scores, key=edge_scores.get, reverse=True)
+
+        return sorted_edges[:num_cuts]
