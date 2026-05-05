@@ -8,6 +8,7 @@ from cut_graph import EasyCutGraph
 from itertools import product
 from time import time
 from pdb import set_trace
+import os.path as osp
 
 # ==============================
 # Simulation parameters
@@ -72,9 +73,10 @@ num_nodes = orig_graph.number_of_nodes()
 # ==============================
 
 # Results CSV file column names
-with open(f"results\\{name}-results.csv", "w") as f:
+path = osp.join("results", f"{name}-results.csv")
+with open(path, "w") as f:
     f.write(
-        "Number of edge cuts,Edge cut seed,Total mobility cut,Largest connected component size,Basic reproduction number,Recovery time,Infection origin,Solver message,Peak severity,Peak time,Global attack rate\n"
+        "Number of edge cuts,Edge cut seed,Total mobility cut,Largest connected component size,Basic reproduction number,Recovery time,Global effective reproduciton number,Infection origin,Solver message,Peak severity,Peak time,Global attack rate\n"
     )
 
 # Progression counter
@@ -112,53 +114,57 @@ for num_cuts in range(0, num_edges, num_edges // num_cut_steps):
         simulator = MetapopulationSIRSolver(cut_graph, tol=tolerance)
 
         # Epidemics iteration
-        for r_time, basic_rep, init_node in product(
-            r_time_list, basic_rep_list, orig_graph.nodes
-        ):
+        for r_time, basic_rep in product(r_time_list, basic_rep_list):
+            eff_rep = simulator.get_eff_rep(
+                basic_rep=basic_rep, recovery_time=r_time, sparse=True
+            )  # Global effective reproduction number
 
-            # Main solve
-            result = simulator.terminal_simulation(
-                basic_rep, r_time, init_node, init_i_pop, 2 * r_time, max_time
-            )
+            # Initial point iteration
+            for init_node in orig_graph.nodes:
 
-            # Successful solve until termination
-            if (
-                result["success"]
-                and result["message"] == "A termination event occurred."
-            ):
-
-                # Epidemics measures
-                global_pop = simulator.total_pops.sum()  # Global total population
-                peak_i_frac = (
-                    result["I"].sum(axis=0).max() / global_pop
-                )  # Peak severity I_max
-                peak_i_time = result["t"][
-                    result["I"].sum(axis=0).argmax()
-                ]  # Peak time t_max
-                inf_r_frac = 1.0 - (
-                    result["I"].sum(axis=0)[-1] / global_pop
-                    + result["S"].sum(axis=0)[-1] / global_pop
-                )  # Global attack rate R(inf)
-                # ========== Effective reproduction number 구현??? ==========
-
-                # Save results to CSV file
-                with open(f"results\\{name}-results.csv", "a") as f:
-                    f.write(
-                        f"{num_cuts},{cut_seed},{cut_mobs},{lccs},{basic_rep},{r_time},{init_node},A termination event occurred.,{peak_i_frac},{peak_i_time},{inf_r_frac}\n"
-                    )
-
-            else:
-                with open(f"results\\{name}-results.csv", "a") as f:
-                    f.write(
-                        f"{num_cuts},{cut_seed},{cut_mobs},{lccs},{basic_rep},{r_time},{init_node},{result['message']},{0},{0},{0}\n"
-                    )
-
-            # Prin progression
-            done_jobs += 1
-
-            if done_jobs % prog_period == 0:
-                print(
-                    f"{done_jobs}/{total_jobs} done, {round(time() - clock_start)} s passed"
+                # Main solve
+                result = simulator.terminal_simulation(
+                    basic_rep, r_time, init_node, init_i_pop, 2 * r_time, max_time
                 )
 
-print(f"Finished, results saved at results\\{name}-results.csv")
+                # Successful solve until termination
+                if (
+                    result["success"]
+                    and result["message"] == "A termination event occurred."
+                ):
+
+                    # Epidemics measures
+                    global_pop = simulator.total_pops.sum()  # Global total population
+                    peak_i_frac = (
+                        result["I"].sum(axis=0).max() / global_pop
+                    )  # Peak severity I_max
+                    peak_i_time = result["t"][
+                        result["I"].sum(axis=0).argmax()
+                    ]  # Peak time t_max
+                    inf_r_frac = 1.0 - (
+                        result["I"].sum(axis=0)[-1] / global_pop
+                        + result["S"].sum(axis=0)[-1] / global_pop
+                    )  # Global attack rate R(inf)
+                    # ========== Effective reproduction number 구현??? ==========
+
+                    # Save results to CSV file
+                    with open(path, "a") as f:
+                        f.write(
+                            f"{num_cuts},{cut_seed},{cut_mobs},{lccs},{basic_rep},{r_time},{init_node},A termination event occurred.,{peak_i_frac},{peak_i_time},{inf_r_frac}\n"
+                        )
+
+                else:
+                    with open(path, "a") as f:
+                        f.write(
+                            f"{num_cuts},{cut_seed},{cut_mobs},{lccs},{basic_rep},{r_time},{eff_rep},{init_node},{result['message']},{0},{0},{0}\n"
+                        )
+
+                # Prin progression
+                done_jobs += 1
+
+                if done_jobs % prog_period == 0:
+                    print(
+                        f"{done_jobs}/{total_jobs} done, {round(time() - clock_start)} s passed"
+                    )
+
+print(f"Finished, results saved at {path}")

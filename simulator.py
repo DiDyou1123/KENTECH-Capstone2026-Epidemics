@@ -5,7 +5,8 @@ Metapopulation SIR model simulator module
 import networkx as nx
 import numpy as np
 import numpy.typing as npt
-from scipy.sparse._csr import csr_array
+import scipy.sparse as sps
+from scipy.sparse.linalg import eigs
 from scipy.integrate import solve_ivp
 
 from cut_graph import EasyCutGraph
@@ -81,8 +82,8 @@ class MetapopulationSIRSolver:
 
     def terminal_simulation(
         self,
-        basic_rep: float,  # R0 = beta/mu
-        recovery_time: float,  # T = 1/mu
+        basic_rep: float,  # R0 = beta/gamma
+        recovery_time: float,  # T = 1/gamma
         init_node: int,  # Node index of initial infection
         init_i_pop: float,  # Initial infected population
         time_min: float,  # Minimum solve time
@@ -102,7 +103,7 @@ class MetapopulationSIRSolver:
 
         # Setup epidemics
         i_rate = basic_rep / recovery_time  # Infection rate beta
-        r_rate = 1 / recovery_time  # Removal rate mu
+        r_rate = 1 / recovery_time  # Removal rate gamma
 
         # Initial point
         init_i_fracs = np.zeros(self.num_nodes, dtype=np.float64)
@@ -184,8 +185,8 @@ class MetapopulationSIRSolver:
 
     def unit_time_simulation(
         self,
-        basic_rep: float,  # R0 = beta/mu
-        recovery_time: float,  # T = 1/mu
+        basic_rep: float,  # R0 = beta/gamma
+        recovery_time: float,  # T = 1/gamma
         init_node: int,  # Node index of initial infection
         init_i_pop: np.float64,  # Initial infected population
         time_max: np.float64,  # Maximum solve time
@@ -199,7 +200,7 @@ class MetapopulationSIRSolver:
 
         # Setup epidemics
         i_rate = basic_rep / recovery_time  # Infection rate beta
-        r_rate = 1 / recovery_time  # Removal rate mu
+        r_rate = 1 / recovery_time  # Removal rate gamma
 
         # Initial point
         init_i_fracs = np.zeros(self.num_nodes, dtype=np.float64)
@@ -228,3 +229,50 @@ class MetapopulationSIRSolver:
         ) * self.total_pops[:, None]
 
         return result
+
+    def get_eff_rep(
+        self,
+        basic_rep: float,  # R0 = beta/gamma
+        recovery_time: float,  # T = 1/gamma
+        sparse: bool = False,  # Acceleration using sparse matrix tricks
+    ) -> float:
+        """
+        Calculate global effective reproduction number
+        """
+        if not sparse:
+            in_jac = basic_rep / recovery_time * np.identity(
+                self.num_nodes
+            ) + self.adj_mat.T / np.reshape(self.total_pops, (-1, 1))
+            out_jac_inv = np.diag(
+                (1 / recovery_time + self.adj_mat.sum(axis=1) / self.total_pops) ** (-1)
+            )
+
+            eigvals = np.linalg.eigvals(in_jac.dot(out_jac_inv))
+
+            return np.max(np.abs(eigvals))
+        else:  # Accelerate version of code above by Claude
+            i_rate = basic_rep / recovery_time
+            pops = np.asarray(self.total_pops).ravel()
+
+            # in_jac = c*I + diag(1/pops) @ A.T     (A.T / pops[:,None] == left-scale rows of A.T)
+            inv_pops = sps.diags(1.0 / pops)
+            in_jac = (
+                i_rate * sps.eye(self.num_nodes, format="csr")
+                + inv_pops @ self.adj_mat.T
+            )
+
+            # out_jac_inv = diag( 1 / (1/recovery_time + rowsum(A)/pops) )
+            row_sums = np.asarray(self.adj_mat.sum(axis=1)).ravel()
+            d = 1.0 / (1.0 / recovery_time + row_sums / pops)
+            out_jac_inv = sps.diags(d)
+
+            next_gen_mat = (in_jac @ out_jac_inv).tocsr()
+
+            vals = eigs(
+                next_gen_mat,
+                k=1,
+                which="LM",
+                return_eigenvectors=False,
+                tol=self.tol,  # No idea why this is marked
+            )
+            return float(np.abs(vals[0]))
