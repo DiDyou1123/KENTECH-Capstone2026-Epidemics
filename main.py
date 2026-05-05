@@ -150,7 +150,7 @@ for num_cuts in range(0, num_edges, num_edges // num_cut_steps):
                     # Save results to CSV file
                     with open(path, "a") as f:
                         f.write(
-                            f"{num_cuts},{cut_seed},{cut_mobs},{lccs},{basic_rep},{r_time},{init_node},A termination event occurred.,{peak_i_frac},{peak_i_time},{inf_r_frac}\n"
+                            f"{num_cuts},{cut_seed},{cut_mobs},{lccs},{basic_rep},{r_time},{eff_rep},{init_node},A termination event occurred.,{peak_i_frac},{peak_i_time},{inf_r_frac}\n"
                         )
 
                 else:

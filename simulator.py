@@ -200,7 +200,7 @@ class MetapopulationSIRSolver:
 
         # Setup epidemics
         i_rate = basic_rep / recovery_time  # Infection rate beta
-        r_rate = 1 / recovery_time  # Removal rate gamma
+        r_rate = 1.0 / recovery_time  # Removal rate gamma
 
         # Initial point
         init_i_fracs = np.zeros(self.num_nodes, dtype=np.float64)
@@ -239,19 +239,22 @@ class MetapopulationSIRSolver:
         """
         Calculate global effective reproduction number
         """
+
+        i_rate = basic_rep / recovery_time  # Infection rate beta
+        r_rate = 1.0 / recovery_time  # Removal rate gamma
+
         if not sparse:
-            in_jac = basic_rep / recovery_time * np.identity(
-                self.num_nodes
-            ) + self.adj_mat.T / np.reshape(self.total_pops, (-1, 1))
+            in_jac = i_rate * np.identity(self.num_nodes) + self.adj_mat.T / np.reshape(
+                self.total_pops, (-1, 1)
+            )
             out_jac_inv = np.diag(
-                (1 / recovery_time + self.adj_mat.sum(axis=1) / self.total_pops) ** (-1)
+                (r_rate + self.adj_mat.sum(axis=1) / self.total_pops) ** (-1)
             )
 
             eigvals = np.linalg.eigvals(in_jac.dot(out_jac_inv))
 
             return np.max(np.abs(eigvals))
         else:  # Accelerate version of code above by Claude
-            i_rate = basic_rep / recovery_time
             pops = np.asarray(self.total_pops).ravel()
 
             # in_jac = c*I + diag(1/pops) @ A.T     (A.T / pops[:,None] == left-scale rows of A.T)
@@ -263,10 +266,10 @@ class MetapopulationSIRSolver:
 
             # out_jac_inv = diag( 1 / (1/recovery_time + rowsum(A)/pops) )
             row_sums = np.asarray(self.adj_mat.sum(axis=1)).ravel()
-            d = 1.0 / (1.0 / recovery_time + row_sums / pops)
+            d = 1.0 / (r_rate + row_sums / pops)
             out_jac_inv = sps.diags(d)
 
-            next_gen_mat = (in_jac @ out_jac_inv).tocsr()
+            next_gen_mat = in_jac @ out_jac_inv
 
             vals = eigs(
                 next_gen_mat,
