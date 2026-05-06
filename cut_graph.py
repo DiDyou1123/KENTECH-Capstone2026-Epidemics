@@ -39,9 +39,10 @@ class EasyCutGraph(nx.Graph):
 
         elif method == "weighted_random":
             rng = np.random.default_rng(seed=seed)
-            cuts = self.get_random_edge_cut(
-                num_cuts, rng, prob_weights=[]
-            )  
+            mobilities = np.array([self[u][v]["mobility"] for u, v in self.edges()])
+            inv_mob = 1.0 / mobilities
+            prob_weights = inv_mob / inv_mob.sum()
+            cuts = self.get_random_edge_cut(num_cuts, rng, prob_weights=prob_weights) 
             # ========== 1/mobility random은 위에서 확률 weight만 바꾸면 될듯? ==========
 
         elif method == "static_bc":
