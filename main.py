@@ -76,7 +76,7 @@ num_nodes = orig_graph.number_of_nodes()
 path = osp.join("results", f"{name}-results.csv")
 with open(path, "w") as f:
     f.write(
-        "Number of edge cuts,Edge cut seed,Total mobility cut,Largest connected component size,Basic reproduction number,Recovery time,Global effective reproduciton number,Infection origin,Solver message,Peak severity,Peak time,Global attack rate\n"
+        "Number of edge cuts,Edge cut seed,Total mobility cut,Largest connected component size,Largest connected component population,Basic reproduction number,Recovery time,Global effective reproduciton number,Infection origin,Solver message,Peak severity,Peak time,Global attack rate\n"
     )
 
 # Progression counter
@@ -107,7 +107,10 @@ for num_cuts in range(0, num_edges, num_edges // num_cut_steps):
 
         # Network measures
         connected_comps = nx.connected_components(cut_graph)
-        lccs = max(connected_comps, key=len)  # Largest connected component size
+        lcc = max(connected_comps, key=len)  # Largest connected component
+        lcc_num = len(lcc) # LCCS
+        lcc_pop = sum([orig_graph.nodes[node]["population"] for node in lcc]) # LCC population
+
         # ========== Effective distance 관련 구현 필요 ==========
         # ========== Effective reproduction number 구현??? ==========
 
@@ -150,13 +153,13 @@ for num_cuts in range(0, num_edges, num_edges // num_cut_steps):
                     # Save results to CSV file
                     with open(path, "a") as f:
                         f.write(
-                            f"{num_cuts},{cut_seed},{cut_mobs},{lccs},{basic_rep},{r_time},{eff_rep},{init_node},A termination event occurred.,{peak_i_frac},{peak_i_time},{inf_r_frac}\n"
+                            f"{num_cuts},{cut_seed},{cut_mobs},{lcc_num},{lcc_pop},{basic_rep},{r_time},{eff_rep},{init_node},A termination event occurred.,{peak_i_frac},{peak_i_time},{inf_r_frac}\n"
                         )
 
                 else:
                     with open(path, "a") as f:
                         f.write(
-                            f"{num_cuts},{cut_seed},{cut_mobs},{lccs},{basic_rep},{r_time},{eff_rep},{init_node},{result['message']},{0},{0},{0}\n"
+                            f"{num_cuts},{cut_seed},{cut_mobs},{lcc_num},{lcc_pop},{basic_rep},{r_time},{eff_rep},{init_node},{result['message']},{0},{0},{0}\n"
                         )
 
                 # Prin progression
