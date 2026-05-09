@@ -106,12 +106,17 @@ for num_cuts in range(0, num_edges, num_edges // num_cut_steps):
             cut_method, num_cuts, seed=cut_seed, get_cut_weight=True, weight="mobility"
         )
 
+        # Setup simulator
+        simulator = MetapopulationSIRSolver(cut_graph, tol=tolerance)
+        global_pop = simulator.total_pops.sum()  # Global total population
+        global_mob = simulator.adj_mat.sum() / 2 # Global total mobility
+
         # Network measures
         connected_comps = nx.connected_components(cut_graph)
         lcc = max(connected_comps, key=len)  # Largest connected component
         lcc_num = len(lcc)  # LCCS
         lcc_pop = sum(
-            [orig_graph.nodes[node]["population"] for node in lcc]
+            [simulator.total_pops[node] for node in lcc]
         )  # LCC population
 
         adj_mat_unweighted = nx.to_scipy_sparse_array(cut_graph, format="csr")
@@ -123,8 +128,6 @@ for num_cuts in range(0, num_edges, num_edges // num_cut_steps):
         avg_dist = dist_matrix[dist_mat_fin].sum() / (
             dist_mat_fin.sum() - len(dist_matrix)
         )  # Average distance
-
-        simulator = MetapopulationSIRSolver(cut_graph, tol=tolerance)
 
         # Epidemics iteration
         for r_time, basic_rep in product(r_time_list, basic_rep_list):
@@ -147,7 +150,6 @@ for num_cuts in range(0, num_edges, num_edges // num_cut_steps):
                 ):
 
                     # Epidemics measures
-                    global_pop = simulator.total_pops.sum()  # Global total population
                     set_trace()
                     peak_i_frac = (
                         result["I"].sum(axis=0).max() / global_pop
