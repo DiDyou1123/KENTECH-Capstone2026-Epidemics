@@ -108,16 +108,12 @@ for num_cuts in range(0, num_edges, num_edges // num_cut_steps):
 
         # Setup simulator
         simulator = MetapopulationSIRSolver(cut_graph, tol=tolerance)
-        global_pop = simulator.total_pops.sum()  # Global total population
-        global_mob = simulator.adj_mat.sum() / 2 # Global total mobility
 
         # Network measures
         connected_comps = nx.connected_components(cut_graph)
         lcc = max(connected_comps, key=len)  # Largest connected component
         lcc_num = len(lcc)  # LCCS
-        lcc_pop = sum(
-            [simulator.total_pops[node] for node in lcc]
-        )  # LCC population
+        lcc_pop = sum([simulator.total_pops[node] for node in lcc])  # LCC population
 
         adj_mat_unweighted = nx.to_scipy_sparse_array(cut_graph, format="csr")
         dist_matrix = shortest_path(
@@ -150,7 +146,7 @@ for num_cuts in range(0, num_edges, num_edges // num_cut_steps):
                 ):
 
                     # Epidemics measures
-                    set_trace()
+                    global_pop = simulator.total_pops.sum()  # Global total population
                     peak_i_frac = (
                         result["I"].sum(axis=0).max() / global_pop
                     )  # Peak severity I_max
@@ -161,7 +157,6 @@ for num_cuts in range(0, num_edges, num_edges // num_cut_steps):
                         result["I"].sum(axis=0)[-1] / global_pop
                         + result["S"].sum(axis=0)[-1] / global_pop
                     )  # Global attack rate R(inf)
-                    # ========== Effective reproduction number 구현??? ==========
 
                     # Save results to CSV file
                     with open(path, "a") as f:
