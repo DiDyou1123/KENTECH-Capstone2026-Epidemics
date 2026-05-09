@@ -16,7 +16,7 @@ import os.path as osp
 # 여기만 바꾸면 됨 (그러면 좋겠음)
 # ==============================
 
-name = "test_high_mobility"  # Save file name
+name = "test_random_2"  # Save file name
 
 # Network parameters
 mob_column = "Max. Number of Routes"  # Mobility column in edgelist
@@ -37,8 +37,8 @@ tolerance = 1e-11  # Numerical solver & terminaiton tolerance
 
 # Edge cutting parameters
 num_cut_steps = 10  # Number of edge cut numbers
-cut_method = "high_mobility"  # Edge cutting method
-num_cut_seeds = 1  # Number of different edge cuts for a single edge cut number
+cut_method = "uniform_random"  # Edge cutting method
+num_cut_seeds = 3  # Number of different edge cuts for a single edge cut number
 # method 랜덤 아닐 때는 num_cut_seeds = 1
 
 prog_period = 100  # Progress print period
@@ -47,8 +47,8 @@ prog_period = 100  # Progress print period
 # Load mobility network
 # ==============================
 
-edgelist = pd.read_csv("data/edgelist_symmetric.csv")
-nodelist = pd.read_csv("data/nodelist_connected.csv")
+edgelist = pd.read_csv(osp.join("data", "edgelist_symmetric.csv"))
+nodelist = pd.read_csv(osp.join("data", "nodelist_connected.csv"))
 
 edgelist["mobility"] = edgelist[mob_column] * unit_mob
 nodelist = nodelist.set_index("ID")
@@ -148,6 +148,7 @@ for num_cuts in range(0, num_edges, num_edges // num_cut_steps):
 
                     # Epidemics measures
                     global_pop = simulator.total_pops.sum()  # Global total population
+                    set_trace()
                     peak_i_frac = (
                         result["I"].sum(axis=0).max() / global_pop
                     )  # Peak severity I_max
