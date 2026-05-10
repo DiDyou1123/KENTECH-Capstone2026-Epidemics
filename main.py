@@ -113,15 +113,17 @@ for num_cuts in range(0, num_edges, num_edges // num_cut_steps):
         simulator = MetapopulationSIRSolver(cut_graph, tol=tolerance)
 
         # Network measures
-        connected_comps = nx.connected_components(cut_graph)
-        lcc = max(connected_comps, key=len)  # Largest connected component
+        lcc = max(nx.connected_components(cut_graph), key=len)  # Largest connected component
         lcc_num = len(lcc)  # LCCS
 
+        set_trace()
         max_cc_pop = 0  # Maximum conncected component population
-        for cc in connected_comps:
+        for cc in nx.connected_components(cut_graph):
             cc_pop = sum([simulator.total_pops[node] for node in cc])
+            set_trace()
             if cc_pop > max_cc_pop:
                 max_cc_pop = cc_pop
+        set_trace()
 
         adj_mat_unweighted = nx.to_scipy_sparse_array(cut_graph, format="csr")
         dist_matrix = shortest_path(
