@@ -16,7 +16,7 @@ import os.path as osp
 # 여기만 바꾸면 됨 (그러면 좋겠음)
 # ==============================
 
-name = "test_random_2"  # Save file name
+name = "test_random_2_LSODA"  # Save file name
 
 # Network parameters
 mob_column = "Max. Number of Routes"  # Mobility column in edgelist
@@ -139,7 +139,13 @@ for num_cuts in range(0, num_edges, num_edges // num_cut_steps):
 
                 # Main solve
                 result = simulator.terminal_simulation(
-                    basic_rep, r_time, init_node, init_i_pop, 2 * r_time, max_time
+                    basic_rep,
+                    r_time,
+                    init_node,
+                    init_i_pop,
+                    2 * r_time,
+                    max_time,
+                    method="BDF",
                 )
 
                 # Successful solve until termination
