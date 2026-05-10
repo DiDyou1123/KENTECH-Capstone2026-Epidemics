@@ -80,7 +80,7 @@ num_nodes = orig_graph.number_of_nodes()
 path = osp.join("results", f"{name}-results.csv")
 with open(path, "w") as f:
     f.write(
-        "Number of edge cuts,Edge cut seed,Total mobility cut,Largest connected component size,Largest connected component population,Diameter,Average distance,Basic reproduction number,Recovery time,Global effective reproduciton number,Infection origin,Solver message,Peak severity,Peak time,Global attack rate\n"
+        "Number of edge cuts,Edge cut seed,Total mobility cut,Largest connected component size,Maximum connected component population,Diameter,Average distance,Basic reproduction number,Recovery time,Global effective reproduciton number,Infection origin,Solver message,Peak severity,Peak time,Global attack rate\n"
     )
 
 # Progression counter
@@ -116,7 +116,12 @@ for num_cuts in range(0, num_edges, num_edges // num_cut_steps):
         connected_comps = nx.connected_components(cut_graph)
         lcc = max(connected_comps, key=len)  # Largest connected component
         lcc_num = len(lcc)  # LCCS
-        lcc_pop = sum([simulator.total_pops[node] for node in lcc])  # LCC population
+
+        max_cc_pop = 0  # Maximum conncected component population
+        for cc in connected_comps:
+            cc_pop = sum([simulator.total_pops[node] for node in cc])
+            if cc_pop > max_cc_pop:
+                max_cc_pop = cc_pop
 
         adj_mat_unweighted = nx.to_scipy_sparse_array(cut_graph, format="csr")
         dist_matrix = shortest_path(
@@ -164,13 +169,13 @@ for num_cuts in range(0, num_edges, num_edges // num_cut_steps):
                     # Save results to CSV file
                     with open(path, "a") as f:
                         f.write(
-                            f"{num_cuts},{cut_seed},{cut_mobs},{lcc_num},{lcc_pop},{diameter},{avg_dist},{basic_rep},{r_time},{eff_rep},{init_node},A termination event occurred.,{peak_i_frac},{peak_i_time},{inf_r_frac}\n"
+                            f"{num_cuts},{cut_seed},{cut_mobs},{lcc_num},{max_cc_pop},{diameter},{avg_dist},{basic_rep},{r_time},{eff_rep},{init_node},A termination event occurred.,{peak_i_frac},{peak_i_time},{inf_r_frac}\n"
                         )
 
                 else:
                     with open(path, "a") as f:
                         f.write(
-                            f"{num_cuts},{cut_seed},{cut_mobs},{lcc_num},{lcc_pop},{diameter},{avg_dist},{basic_rep},{r_time},{eff_rep},{init_node},{result['message']},{0},{0},{0}\n"
+                            f"{num_cuts},{cut_seed},{cut_mobs},{lcc_num},{max_cc_pop},{diameter},{avg_dist},{basic_rep},{r_time},{eff_rep},{init_node},{result['message']},{0},{0},{0}\n"
                         )
 
                 # Prin progression
