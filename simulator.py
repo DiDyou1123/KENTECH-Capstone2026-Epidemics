@@ -17,87 +17,6 @@ from pdb import set_trace
 arr64 = npt.NDArray[np.float64]
 
 
-class BlockJacobian:
-    """
-    Fast jacobian builder, written by Claude
-    """
-
-    def __init__(
-        self,
-        N: int,  # Half the degree of freedom
-        S_pattern: sps.csr_array,  # Adjacency matrix sparsity pattern
-    ):
-        """
-        S1_pattern, S2_pattern: sparse (N,N) with the *structural* nonzeros
-        of S1, S2 (values irrelevant; only pattern matters; diagonal must
-        be included so updates to d1/d2 land in existing slots).
-        """
-        self.N = N
-        I = sps.eye(N, format="coo")
-
-        # Force diagonal into each block's pattern
-        S1f = (S_pattern + I).tocoo()
-        S2f = (S_pattern + I).tocoo()
-        D12 = I.copy()
-        D21 = I.copy()
-
-        # Tag each block's entries with row/col offsets and a "source id"
-        rows = np.concatenate([S1f.row, S2f.row + N, D12.row, D21.row + N])
-        cols = np.concatenate([S1f.col, S2f.col + N, D12.col + N, D21.col])
-        # placeholder data, unique so we can locate each entry after CSR sums duplicates?
-        # Better: ensure no duplicates by construction (pattern of S1 has diag, so
-        # there are no duplicates with the I we added — use sum_duplicates safely below).
-        data = np.zeros(rows.size)
-
-        J = sps.coo_matrix((data, (rows, cols)), shape=(2 * N, 2 * N)).tocsr()
-        J.sort_indices()
-        self.J = J
-
-        # Build index maps: for each (r, c) we want, find its position in J.data
-        def locate(r, c):
-            # vectorized lookup in CSR
-            r = np.asarray(r)
-            c = np.asarray(c)
-            out = np.empty(r.size, dtype=np.intp)
-            for k in range(r.size):
-                start, end = J.indptr[r[k]], J.indptr[r[k] + 1]
-                idx = start + np.searchsorted(J.indices[start:end], c[k])
-                out[k] = idx
-            return out
-
-        idx = np.arange(N)
-        self.idx_d1 = locate(idx, idx)  # A11 diagonal
-        self.idx_d2 = locate(idx + N, idx + N)  # A22 diagonal
-        self.idx_d12 = locate(idx, idx + N)  # A12 diagonal
-        self.idx_d21 = locate(idx + N, idx)  # A21 diagonal
-        self.idx_S1 = locate(S_pattern.tocoo().row, S_pattern.tocoo().col)
-        self.idx_S2 = locate(S_pattern.tocoo().row + N, S_pattern.tocoo().col + N)
-
-    def update(
-        self,
-        d1: arr64,
-        d2: arr64,
-        d12: arr64,
-        d21: arr64,
-        S_data: arr64,
-    ) -> sps.csr_array:
-        """S1_data / S2_data: values aligned with the COO order of the
-        pattern you passed in __init__ (same row/col arrays)."""
-        D = self.J.data
-        D[:] = 0.0
-        # off-diagonal blocks
-        D[self.idx_d12] = d12
-        D[self.idx_d21] = d21
-        # on-diagonal blocks: sparse part + diagonal part (added, not overwritten)
-
-        D[self.idx_S1] += S_data
-        D[self.idx_S2] += S_data
-        D[self.idx_d1] += d1
-        D[self.idx_d2] += d2
-
-        return self.J
-
-
 class MetapopulationSIRSolver:
     """
     Matapopulation SIR model simulator
@@ -133,8 +52,6 @@ class MetapopulationSIRSolver:
                 f"Mobility outflow exceeds population for nodes {list(np.where(overflow)[0])}"
             )
 
-        self.jac = BlockJacobian(self.num_nodes, self.adj_mat)
-
     def get_velocity(
         self,
         time: float,
@@ -162,26 +79,6 @@ class MetapopulationSIRSolver:
         )
 
         return np.concatenate((d_i_fracs, d_s_fracs), axis=0)
-
-    def get_jacobian(
-        self,
-        time: float,
-        pop_fracs: arr64,  # Population compartments fractions array
-        i_rate: float,
-        r_rate: float,
-    ) -> sps.csr_array:
-
-        i_fracs = pop_fracs[: self.num_nodes]  # Infected population fraction
-        s_fracs = pop_fracs[self.num_nodes :]  # Susceptible population fraction
-
-        d1 = i_rate * s_fracs - r_rate - self.adj_mat.sum(axis=1) / self.total_pops
-        d2 = -i_rate * i_fracs - self.adj_mat.sum(axis=1) / self.total_pops
-        d12 = i_rate * i_fracs
-        d21 = -i_rate * s_fracs
-
-        S = self.adj_mat.T / self.total_pops.reshape(-1, 1)
-
-        return self.jac.update(d1, d2, d12, d21, S.data)
 
     def terminal_simulation(
         self,
@@ -272,7 +169,6 @@ class MetapopulationSIRSolver:
             args=(i_rate, r_rate),
             events=termination,
             method=method,
-            jac=self.get_jacobian if method in ["Radau", "BDF"] else None,
             rtol=rtol,
             atol=atol,
             **kwargs,
