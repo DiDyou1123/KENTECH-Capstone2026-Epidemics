@@ -47,24 +47,27 @@ prog_period = 100  # Progress print period
 # Load mobility network
 # ==============================
 
-edgelist = pd.read_csv(osp.join("data", "edgelist_symmetric.csv"))
 nodelist = pd.read_csv(osp.join("data", "nodelist_connected.csv"))
+edgelist = pd.read_csv(osp.join("data", "edgelist_symmetric.csv"))
 
-edgelist["mobility"] = edgelist[mob_column] * unit_mob
 nodelist = nodelist.set_index("ID")
+edgelist["mobility"] = edgelist[mob_column] * unit_mob
 
-node_attr_dict = {}
-for i in nodelist.index:
-    node_attr_dict[i] = {"population": nodelist.loc[i, pop_column]}
+nodes = [
+    (node, {"population": nodelist.loc[node, pop_column]}) for node in nodelist.index
+]
+edges = [
+    (
+        edgelist.loc[edge, "Source"],
+        edgelist.loc[edge, "Target"],
+        edgelist.loc[edge, "mobility"],
+    )
+    for edge in edgelist.index
+]
 
-orig_graph = nx.from_pandas_edgelist(
-    edgelist,
-    "Source",
-    "Target",
-    edge_attr="mobility",
-    create_using=EasyCutGraph,
-)
-nx.set_node_attributes(orig_graph, node_attr_dict)
+orig_graph = EasyCutGraph()
+orig_graph.add_nodes_from(nodes)
+orig_graph.add_weighted_edges_from(edges, weight="mobility")
 
 num_edges = orig_graph.number_of_edges()
 num_nodes = orig_graph.number_of_nodes()
