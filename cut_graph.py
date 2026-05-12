@@ -112,23 +112,18 @@ class EasyCutGraph(nx.Graph):
     def get_greedy_bc_edge_cut(
         self,
         num_cuts: int,
-        weight: str | None = "mobility",
     ) -> list[tuple]:
         
         # 매 스텝마다 BC를 재계산하며 가장 높은 엣지를 하나씩 num_cuts번 자르기
 
         working_graph = self.copy()
-        inv_weight = "inv_" + weight
         cuts = []
 
         for _ in range(num_cuts):
             if working_graph.number_of_edges() == 0:
                 break
 
-            for u, v, data in working_graph.edges(data=True):
-                data[inv_weight] = 1.0 / data[weight]
-
-            bc = nx.edge_betweenness_centrality(working_graph, weight=inv_weight)
+            bc = nx.edge_betweenness_centrality(working_graph, weight=None)
             top_edge = max(bc, key=bc.get)
             cuts.append(top_edge)
             working_graph.remove_edge(*top_edge)
