@@ -16,7 +16,7 @@ import os.path as osp
 # 여기만 바꾸면 됨 (그러면 좋겠음)
 # ==============================
 
-name = "test_random_2"  # Save file name
+name = "test_greedy_bc"  # Save file name
 
 # Network parameters
 mob_column = "Max. Number of Routes"  # Mobility column in edgelist
@@ -25,7 +25,12 @@ unit_mob = 200  # Number of passangeres for each routes (people/days/routes)
 
 # Epidemics parameters
 basic_rep_list = [
+    1.0,
+    1.5,
     2.0,
+    2.5,
+    3.0,
+    3.5,
     4.0,
 ]  # Single population basic reproduction number R0
 r_time_list = [14.0, 28.0]  # Recovery time T (days)
@@ -36,9 +41,9 @@ max_time = 10 * 365.0  # Maximum simulation time (days)
 tolerance = 1e-11  # Numerical solver & terminaiton tolerance
 
 # Edge cutting parameters
-num_cut_steps = 10  # Number of edge cut numbers
-cut_method = "uniform_random"  # Edge cutting method
-num_cut_seeds = 3  # Number of different edge cuts for a single edge cut number
+num_cut_steps = 50  # Number of edge cut numbers
+cut_method = "greedy_bc"  # Edge cutting method
+num_cut_seeds = 1  # Number of different edge cuts for a single edge cut number
 # method 랜덤 아닐 때는 num_cut_seeds = 1
 
 prog_period = 100  # Progress print period
